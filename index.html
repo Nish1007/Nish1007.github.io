@@ -167,15 +167,30 @@
   <!-- the album as a book: the cover swings open on its spine, then the spread becomes the page above -->
   <div class="pj-book" id="pj-book" aria-hidden="true">
     <div class="bk-stage">
-      <div class="bk-page" id="bk-right"><i class="bk-cast" id="bk-cast"></i></div>
+      <div class="bk-page" id="bk-right">
+        <div class="bk-copy">
+          <p class="bk-eyebrow" id="bk-eyebrow"></p>
+          <h3 class="bk-title" id="bk-title"></h3>
+          <p class="bk-tag" id="bk-tag"></p>
+          <span class="bk-rules"><i></i><i></i><i class="short"></i></span>
+        </div>
+        <i class="bk-cast" id="bk-cast"></i>
+      </div>
       <div class="bk-cover" id="bk-cover">
         <div class="bk-face bk-front" id="bk-front"><i class="bk-shade" id="bk-fshade"></i></div>
         <div class="bk-face bk-back">
-          <span class="disc bk-disc"><span class="label" id="bk-label"><span class="spindle"></span></span></span>
+          <div class="bk-print" id="bk-print"></div>
+          <p class="bk-cap"><b id="bk-album"></b><span id="bk-artist"></span></p>
           <i class="bk-shade" id="bk-bshade"></i>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- the intro: a title card that greets the project while the album lands -->
+  <div class="pj-intro" id="pj-intro" aria-hidden="true">
+    <p class="in-eyebrow" id="in-eyebrow"></p>
+    <h2 class="in-title" id="in-title"></h2>
   </div>
 
   <button class="pj-close" id="pj-close" type="button" aria-label="Close project">

@@ -43,7 +43,8 @@ img { display: block; }
 
 #water { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
 main, .nav, .foot { position: relative; z-index: 1; }
-main, .nav, .foot { transition: opacity .55s ease; }
+main, .nav, .foot { transition: opacity .4s ease; }
+html { scrollbar-gutter: stable; }       /* so locking the scroll while a project is open never shifts the page */
 body.pj-open main, body.pj-open .nav, body.pj-open .foot { opacity: 0; pointer-events: none; }
 
 em { font-family: var(--serif); font-style: italic; font-weight: 400; }
@@ -187,16 +188,26 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .ctl[hidden], svg[hidden] { display: none; }
 
 /* ---------- project overlay: the album opens into two halves ---------- */
-.pj { position: fixed; inset: 0; z-index: 60; overflow: hidden; --paper: color-mix(in oklab, var(--c1) 58%, #f6efe4); --bk-ink: rgba(26, 14, 7, .2); }
+.pj { position: fixed; inset: 0; z-index: 60; overflow: hidden; --S: 420px; --paper: color-mix(in oklab, var(--c1) 22%, #f7f1e6); }
 .pj[hidden] { display: none; }
 .pj-scrim { position: absolute; inset: 0; background: rgba(12, 6, 3, .42); opacity: 0; }
 /* the book: a closed S×S album whose cover swings open about its left edge (the spine) */
 .pj-book { position: absolute; display: none; will-change: transform; }
 .bk-stage { position: absolute; inset: 0; perspective: 2200px; perspective-origin: 0 50%; }
 .bk-page { position: absolute; inset: 0; border-radius: 2px 6px 6px 2px; background: var(--paper); box-shadow: 2px 2px 0 rgba(255,255,255,.55), 4px 4px 0 rgba(0,0,0,.12), 6px 6px 0 rgba(255,255,255,.4), 0 30px 80px rgba(0,0,0,.45); }
-.bk-page::before { content: ""; position: absolute; left: 18%; right: 11%; top: 16%; bottom: 16%; background:
-  linear-gradient(var(--bk-ink), var(--bk-ink)) 0 0 / 50% 7% no-repeat,
-  repeating-linear-gradient(to bottom, transparent 0 14px, var(--bk-ink) 14px 16px) 0 20% / 100% 80% no-repeat; }
+/* right page: a clean title page for the project */
+.bk-copy { position: absolute; inset: 12% 10% 12% 15%; display: flex; flex-direction: column; color: #241710; }
+.bk-eyebrow { font-size: max(9px, calc(var(--S) * .024)); letter-spacing: .16em; text-transform: uppercase; font-weight: 600; color: rgba(36, 23, 16, .6); }
+.bk-title { font-family: var(--serif); font-weight: 400; font-size: calc(var(--S) * .11); line-height: .98; letter-spacing: -.015em; margin: .45em 0 .4em; text-wrap: balance; }
+.bk-tag { font-size: max(10px, calc(var(--S) * .03)); line-height: 1.5; color: rgba(36, 23, 16, .72); }
+.bk-rules { margin-top: auto; display: grid; gap: calc(var(--S) * .03); }
+.bk-rules i { display: block; height: 2px; border-radius: 2px; background: rgba(36, 23, 16, .14); }
+.bk-rules i.short { width: 55%; }
+/* left page: the album as a framed print with its caption */
+.bk-print { position: absolute; left: 50%; top: 45%; width: 62%; aspect-ratio: 1; transform: translate(-50%, -50%); background-size: cover; background-position: center; border-radius: 3px; box-shadow: 0 16px 36px rgba(36, 23, 16, .32), 0 0 0 1px rgba(0, 0, 0, .07); }
+.bk-cap { position: absolute; left: 8%; right: 8%; bottom: 8%; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; color: #241710; }
+.bk-cap b { font-family: var(--serif); font-weight: 400; font-size: calc(var(--S) * .062); line-height: 1.05; }
+.bk-cap span { font-size: max(9px, calc(var(--S) * .026)); letter-spacing: .06em; color: rgba(36, 23, 16, .62); }
 .bk-page::after, .bk-back::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
 .bk-page::after { background: linear-gradient(90deg, rgba(0,0,0,.3), rgba(0,0,0,0) 13%); }
 .bk-back::after { background: linear-gradient(270deg, rgba(0,0,0,.3), rgba(0,0,0,0) 13%); }
@@ -208,8 +219,10 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .bk-front .bk-shade { background: linear-gradient(90deg, rgba(0,0,0,.15), rgba(0,0,0,.65)); }
 .bk-back { transform: rotateY(180deg); border-radius: 6px 2px 2px 6px; background: var(--paper); }
 .bk-back .bk-shade { background: linear-gradient(270deg, rgba(0,0,0,.35), rgba(0,0,0,.05)); }
-.bk-disc { position: absolute; left: 50%; top: 50%; width: 76%; margin: -38% 0 0 -38%; aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 5px #08080a, inset 0 0 40px rgba(0,0,0,.6), 0 14px 34px rgba(0,0,0,.4); animation: bkspin 7s linear infinite; }
-@keyframes bkspin { to { transform: rotate(360deg); } }
+/* the intro title card, above the book while it lands */
+.pj-intro { position: absolute; left: 0; right: 0; bottom: calc(50% + var(--S) / 2 + clamp(14px, 3.2vh, 36px)); padding: 0 5vw; text-align: center; color: #fff; pointer-events: none; opacity: 0; }
+.in-eyebrow { font-size: 12.5px; letter-spacing: .24em; text-transform: uppercase; font-weight: 600; opacity: .88; text-shadow: 0 1px 14px rgba(0, 0, 0, .4); }
+.in-title { margin-top: 6px; font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 5.2vw, 70px); line-height: 1; letter-spacing: -.02em; text-wrap: balance; text-shadow: 0 2px 32px rgba(0, 0, 0, .4); }
 .pj-half { position: absolute; top: 0; width: 50%; height: 100%; overflow: hidden; visibility: hidden; }
 .pj-left { left: 0; }
 .pj-right { left: 50%; }

@@ -62,6 +62,8 @@ function addRipple(px, py, amp = 1) {
 const palette = { cur: [[.95, .46, .13], [.9, .77, .69], [.71, .41, .22]], tgt: null };
 const uniforms = {};
 let renderScale = 1;
+let waterBusy = false;                       // true while the album opens/closes: the water drops resolution so the animation gets the whole GPU
+function setWaterBusy(v) { if (waterBusy !== v) { waterBusy = v; if (typeof resize === 'function') resize(); } }
 let resize = () => {};
 const adapt = { ema: 1 / 60, cool: 0 };
 
@@ -173,7 +175,7 @@ void main(){
 
   // Render scale adapts: if frames are slow (weak GPU), the water quietly drops resolution.
   resize = () => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25) * renderScale;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25) * renderScale * (waterBusy ? .6 : 1);
     canvas.width  = Math.max(64, Math.round(innerWidth * dpr));
     canvas.height = Math.max(64, Math.round(innerHeight * dpr));
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -470,7 +472,9 @@ function sheetHTML(it) {
 const pj = {
   root: $('#pj'), scrim: $('#pj-scrim'),
   book: $('#pj-book'), cover: $('#bk-cover'), front: $('#bk-front'), page: $('#bk-right'),
-  fshade: $('#bk-fshade'), bshade: $('#bk-bshade'), cast: $('#bk-cast'), blabel: $('#bk-label'),
+  fshade: $('#bk-fshade'), bshade: $('#bk-bshade'), cast: $('#bk-cast'), print: $('#bk-print'),
+  bkEyebrow: $('#bk-eyebrow'), bkTitle: $('#bk-title'), bkTag: $('#bk-tag'), bkAlbum: $('#bk-album'), bkArtist: $('#bk-artist'),
+  intro: $('#pj-intro'), inEyebrow: $('#in-eyebrow'), inTitle: $('#in-title'),
   left: $('#pj-left'), right: $('#pj-right'), artL: $('#pj-art-l'), artR: $('#pj-art-r'),
   lcontent: $('.pj-lcontent'), sheet: $('#pj-sheet'), close: $('#pj-close'),
 };
@@ -489,7 +493,7 @@ function anim(node, kf, opt = {}) {
 // S = side of the closed album; once open, the spread is 2S wide and its two pages sit either side of the screen centre
 function geom() {
   const W = innerWidth, H = innerHeight;
-  return { W, H, S: Math.round(Math.min(H * .6, W * .42, 560)) };
+  return { W, H, S: Math.round(Math.min(H * .56, W * .4, 540)) };
 }
 
 // where the two pages of the open book are, as clip-paths on the left and right halves of the screen
@@ -498,11 +502,22 @@ function pageRects(g) {
   return { L: `inset(${v}px 0px ${v}px ${h}px)`, R: `inset(${v}px ${h}px ${v}px 0px)` };
 }
 
-// put the (closed) book in the middle of the screen
-function placeBook(g, cover) {
+// put the (closed) book in the middle of the screen and write its pages
+function placeBook(g, it) {
+  const a = it.album, p = it.project;
   Object.assign(pj.book.style, { display: 'block', width: g.S + 'px', height: g.S + 'px', left: (g.W - g.S) / 2 + 'px', top: (g.H - g.S) / 2 + 'px' });
-  pj.front.style.backgroundImage = pj.blabel.style.backgroundImage = `url("${cover}")`;
+  pj.root.style.setProperty('--S', g.S + 'px');
+  pj.book.style.setProperty('--S', g.S + 'px');
+  pj.front.style.backgroundImage = pj.print.style.backgroundImage = `url("${a.cover}")`;
+  const eyebrow = p ? `Project ${pad(it.i + 1)} · ${p.kind}` : 'B-side';
+  pj.bkEyebrow.textContent = pj.inEyebrow.textContent = eyebrow;
+  pj.bkTitle.textContent = pj.inTitle.textContent = p ? p.title : a.title;
+  pj.bkTag.textContent = p ? p.tagline : `${a.artist} · ${a.year}`;
+  pj.bkAlbum.textContent = a.title;
+  pj.bkArtist.textContent = `${a.artist}${a.year ? ' · ' + a.year : ''}`;
 }
+// decode the cover before an animation starts, so the first frame never waits on it
+const decodeImg = src => { const i = new Image(); i.src = src; return (i.decode ? i.decode() : Promise.resolve()).catch(() => {}); };
 
 const sheetKids = () => $$('.pj-sheet > *');
 const originRect = node => (node.querySelector('.book3d') || node).getBoundingClientRect();
@@ -523,7 +538,7 @@ function fillOverlay(it) {
 }
 
 function clearInline() {
-  [pj.left, pj.right, pj.artL, pj.artR, pj.lcontent, pj.sheet, pj.close, pj.scrim, pj.root, pj.book, pj.cover, pj.front, pj.page, pj.fshade, pj.bshade, pj.cast].forEach(n => {
+  [pj.left, pj.right, pj.artL, pj.artR, pj.lcontent, pj.sheet, pj.close, pj.scrim, pj.root, pj.book, pj.cover, pj.front, pj.page, pj.fshade, pj.bshade, pj.cast, pj.intro, pj.inEyebrow, pj.inTitle].forEach(n => {
     ['clip-path', 'visibility', 'opacity', 'transform', 'border-radius'].forEach(p => n.style.removeProperty(p));
   });
   pj.book.style.display = 'none';
@@ -559,53 +574,65 @@ async function openItem(i, source) {
   const dx = from.left + from.width / 2 - g.W / 2, dy = from.top + from.height / 2 - g.H / 2;
   const round = source.id === 'hero-record';
 
-  // hide everything that appears later
+  // everything that appears later starts hidden
   pj.lcontent.style.opacity = 0; pj.sheet.style.opacity = 0; sheetKids().forEach(k => k.style.opacity = 0);
-  placeBook(g, it.album.cover);
-  pj.page.style.opacity = 0;                    // the first page stays hidden under the cover until it starts to lift
+  placeBook(g, it);
+  pj.page.style.opacity = 0; pj.bshade.style.opacity = 1; pj.intro.style.opacity = 1;
   liftSource(source, true);
+  await decodeImg(it.album.cover);
 
-  // 1) the album lifts off the shelf and flies to the middle of the screen
-  anim(pj.scrim, [{ opacity: 0 }, { opacity: 1 }], { duration: 480, easing: 'ease' });
-  await Promise.all([
-    anim(pj.book, [{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'none' }], { duration: 560, easing: EASE_OUT }),
-    anim(pj.front, [{ borderRadius: round ? '50%' : `${6 / s}px` }, { borderRadius: '3px 6px 6px 3px' }], { duration: 560, easing: EASE_OUT })
-  ]);
+  // One timeline (ms), every step scheduled up front so nothing waits on anything else:
+  //   0     intro title card + the album flies to the middle
+  //   t1    the cover swings open on its spine (the book slides over so the spread ends up centred)
+  //   tx    the two pages grow into the two halves of the screen, a little before the cover has landed
+  const FL = 440, HOLD = 150, OD = 760, D = 720;
+  const t1 = FL + HOLD, tx = t1 + OD - 220;
+  setWaterBusy(true);                              // the water drops resolution while this plays
+  pj.root.classList.add('pj-moving');              // and the big live blur is switched off
+  document.body.classList.add('pj-open');          // the shelf fades away behind, so the book opens over clean water
 
-  // 2) the cover swings open on its spine while the whole book slides over so the spread ends up centred.
-  //    The slide and the swing share one easing curve, so the spine never drifts against the cover.
-  pj.page.style.opacity = 1;
-  pj.root.classList.add('pj-moving');           // drop the expensive blur while things move
-  const OD = 1500, SWAP = OD - 320;             // 3) starts just before the cover lands, so it reads as one motion
-  const open = Promise.all([
-    anim(pj.book,  [{ transform: 'none' }, { transform: `translateX(${S / 2}px)` }], { duration: OD, easing: EASE_BOOK }),
-    anim(pj.cover, [{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-180deg)' }], { duration: OD, easing: EASE_BOOK }),
-    anim(pj.fshade, [{ opacity: 0 }, { opacity: 1 }], { duration: OD * .45, easing: 'ease-in' }),                         // the outside darkens as it turns away
-    anim(pj.bshade, [{ opacity: 1 }, { opacity: 0 }], { duration: OD * .45, delay: OD * .5, easing: 'ease-out' }),        // the inside catches the light as it lands
-    anim(pj.cast, [{ opacity: 0 }, { opacity: .8, offset: .5 }, { opacity: 0 }], { duration: OD })                         // the cover's shadow sweeps across the page
-  ]);
+  const F = { fill: 'forwards' };                  // later steps mustn't touch a node before their turn
+  const early = [
+    anim(pj.scrim, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing: 'ease' }),
+    anim(pj.book, [{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'none' }], { duration: FL, easing: EASE_OUT }),
+    anim(pj.front, [{ borderRadius: round ? '50%' : `${6 / s}px` }, { borderRadius: '3px 6px 6px 3px' }], { duration: FL, easing: EASE_OUT }),
+    anim(pj.page, [{ opacity: 0 }, { opacity: 1 }], { duration: 60, delay: t1, ...F }),
+    // intro: eyebrow, then title, rise in while the album lands, and leave as the cover lifts
+    anim(pj.inEyebrow, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 120, easing: EASE_OUT }),
+    anim(pj.inTitle, [{ opacity: 0, transform: 'translateY(22px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 200, easing: EASE_OUT }),
+    anim(pj.inEyebrow, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-10px)' }], { duration: 240, delay: t1 + 40, easing: 'ease-in', ...F }),
+    anim(pj.inTitle, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-16px)' }], { duration: 280, delay: t1 + 40, easing: 'ease-in', ...F })
+  ];
 
-  // 3) the open spread becomes the project page: its two pages grow to fill the two halves of the screen
-  const D = 1100;
-  const expand = wait(SWAP * SLOW).then(() => {
+  // the cover swing: the slide and the swing share one easing curve, so the spine never drifts against the cover
+  const swing = [
+    anim(pj.book,  [{ transform: 'none' }, { transform: `translateX(${S / 2}px)` }], { duration: OD, delay: t1, easing: EASE_BOOK, ...F }),
+    anim(pj.cover, [{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-180deg)' }], { duration: OD, delay: t1, easing: EASE_BOOK, ...F }),
+    anim(pj.fshade, [{ opacity: 0 }, { opacity: 1 }], { duration: OD * .45, delay: t1, easing: 'ease-in', ...F }),                  // the outside darkens as it turns away
+    anim(pj.bshade, [{ opacity: 1 }, { opacity: 0 }], { duration: OD * .45, delay: t1 + OD * .5, easing: 'ease-out', ...F }),      // the inside catches the light as it lands
+    anim(pj.cast, [{ opacity: 0 }, { opacity: .8, offset: .5 }, { opacity: 0 }], { duration: OD, delay: t1, ...F })                  // the cover's shadow sweeps across the page
+  ];
+
+  // the open spread becomes the project page
+  const expand = wait(tx * SLOW).then(() => {
     addRipple(g.W / 2, g.H / 2, 1.1);
     pj.left.style.visibility = 'visible'; pj.right.style.visibility = 'visible';
     pj.left.style.clipPath = rects.L; pj.right.style.clipPath = rects.R;
-    document.body.classList.add('pj-open');
     return Promise.all([
-      anim(pj.book,  [{ opacity: 1 }, { opacity: 0 }], { duration: 420, delay: 200, easing: 'ease' }),
+      anim(pj.book,  [{ opacity: 1 }, { opacity: 0 }], { duration: 360, delay: 140, easing: 'ease', ...F }),
       anim(pj.left,  [{ clipPath: rects.L }, { clipPath: 'inset(0px 0px 0px 0px)' }], { duration: D, easing: EASE_BOOK }),
       anim(pj.right, [{ clipPath: rects.R }, { clipPath: 'inset(0px 0px 0px 0px)' }], { duration: D, easing: EASE_BOOK }),
       anim(pj.artL,  [{ opacity: 1 }, { opacity: 0 }], { duration: D * .55, delay: D * .3, easing: 'ease' }),          // the paper turns to glass as it grows
       anim(pj.artR,  [{ opacity: 1 }, { opacity: 0 }], { duration: D * .55, delay: D * .3, easing: 'ease' }),
-      anim(pj.sheet, [{ opacity: 0 }, { opacity: 1 }], { duration: 560, delay: 320, easing: 'ease' }),
-      anim(pj.lcontent, [{ opacity: 0, transform: 'translateY(26px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 850, delay: 480, easing: EASE_OUT }),
-      ...sheetKids().map((k, n) => anim(k, [{ opacity: 0, transform: 'translateY(20px)' }, { opacity: 1, transform: 'none' }], { duration: 650, delay: 620 + Math.min(n, 9) * 55, easing: EASE_OUT })),
-      anim(pj.close, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 800, easing: 'ease' })
+      anim(pj.sheet, [{ opacity: 0 }, { opacity: 1 }], { duration: 420, delay: 200, easing: 'ease' }),
+      anim(pj.lcontent, [{ opacity: 0, transform: 'translateY(24px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: 300, easing: EASE_OUT }),
+      ...sheetKids().map((k, n) => anim(k, [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }], { duration: 520, delay: 380 + Math.min(n, 9) * 40, easing: EASE_OUT })),
+      anim(pj.close, [{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay: 480, easing: 'ease' })
     ]);
   });
-  await Promise.all([open, expand]);
+  await Promise.all([...early, ...swing, expand]);
   pj.root.classList.remove('pj-moving');
+  setWaterBusy(false);
   pj.book.style.display = 'none';
   busy = false;
   pj.close.focus({ preventScroll: true });
@@ -628,43 +655,15 @@ async function closeOverlay() {
     return finishClose(target);
   }
 
-  const g = geom(), S = g.S, rects = pageRects(g);
-  // content out
-  await Promise.all([
-    anim(pj.lcontent, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease' }),
-    anim(pj.close, [{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease' }),
-    ...sheetKids().map(k => anim(k, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease' }))
-  ]);
-  anim(pj.sheet, [{ opacity: 1 }, { opacity: 1 }], { duration: 1 });
-  document.body.classList.remove('pj-open');   // the page fades back in behind
-
-  // the two halves shrink back into the two pages of the open book
-  placeBook(g, ITEMS[openIdx].album.cover);
+  const g = geom(), S = g.S, rects = pageRects(g), it = ITEMS[openIdx];
+  placeBook(g, it);                                      // writes the pages again, ready to be revealed
   pj.book.style.transform = `translateX(${S / 2}px)`; pj.book.style.opacity = 0;
   pj.cover.style.transform = 'rotateY(-180deg)'; pj.page.style.opacity = 1;
   [pj.fshade, pj.bshade, pj.cast].forEach(n => n.style.opacity = 0);
   pj.root.classList.add('pj-moving');
-  const D = 950, CD = 1400;
-  const shrink = Promise.all([
-    anim(pj.left,  [{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: rects.L }], { duration: D, easing: EASE_BOOK }),
-    anim(pj.right, [{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: rects.R }], { duration: D, easing: EASE_BOOK }),
-    anim(pj.artL,  [{ opacity: 0 }, { opacity: 1 }], { duration: 520 }),
-    anim(pj.artR,  [{ opacity: 0 }, { opacity: 1 }], { duration: 520 }),
-    anim(pj.sheet, [{ opacity: 1 }, { opacity: 0 }], { duration: 320 }),
-    anim(pj.book,  [{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: D - 380, easing: 'ease' })
-  ]).then(() => { pj.left.style.visibility = pj.right.style.visibility = 'hidden'; });
+  setWaterBusy(true);
+  document.body.classList.remove('pj-open');             // the shelf fades back in behind
 
-  // the book closes: the cover swings shut and it slides back to the middle (starting just before the pages finish shrinking)
-  const closing = wait((D - 260) * SLOW).then(() => Promise.all([
-    anim(pj.book,  [{ transform: `translateX(${S / 2}px)` }, { transform: 'none' }], { duration: CD, easing: EASE_BOOK }),
-    anim(pj.cover, [{ transform: 'rotateY(-180deg)' }, { transform: 'rotateY(0deg)' }], { duration: CD, easing: EASE_BOOK }),
-    anim(pj.bshade, [{ opacity: 0 }, { opacity: 1 }], { duration: CD * .45, easing: 'ease-in' }),
-    anim(pj.fshade, [{ opacity: 1 }, { opacity: 0 }], { duration: CD * .45, delay: CD * .5, easing: 'ease-out' }),
-    anim(pj.cast, [{ opacity: 0 }, { opacity: .8, offset: .5 }, { opacity: 0 }], { duration: CD })
-  ]));
-  await Promise.all([shrink, closing]);
-
-  // ...and the album flies back to its place on the shelf
   if (target.classList.contains('tile')) {
     const r = target.getBoundingClientRect();
     if (r.bottom < 40 || r.top > innerHeight - 40) target.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -673,12 +672,38 @@ async function closeOverlay() {
   const s = to.width / S;
   const dx = to.left + to.width / 2 - g.W / 2, dy = to.top + to.height / 2 - g.H / 2;
   const round = target.id === 'hero-record';
-  pj.page.style.opacity = 0;
+
+  // One timeline (ms), the open sequence in reverse: content out, the halves shrink back to two pages,
+  // the cover swings shut, then the album flies home.
+  const F = { fill: 'forwards' };
+  const ts = 100, D = 620;                               // the pages start to shrink
+  const tc = ts + D - 180, CD = 720;                     // the cover starts to close just before they finish
+  const tf = tc + CD, FL = 420;                          // and flies back to the shelf
+  const hideHalves = wait((ts + D) * SLOW).then(() => { pj.left.style.visibility = pj.right.style.visibility = 'hidden'; });
   await Promise.all([
-    anim(pj.book, [{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${s})` }], { duration: 540, easing: EASE_IO }),
-    anim(pj.front, [{ borderRadius: '3px 6px 6px 3px' }, { borderRadius: round ? '50%' : `${6 / s}px` }], { duration: 540, easing: EASE_IO }),
-    anim(pj.scrim, [{ opacity: 1 }, { opacity: 0 }], { duration: 540, easing: 'ease' })
+    hideHalves,
+    anim(pj.lcontent, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease' }),
+    anim(pj.close, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease' }),
+    ...sheetKids().map(k => anim(k, [{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease' })),
+    anim(pj.sheet, [{ opacity: 1 }, { opacity: 0 }], { duration: 240, delay: 60, easing: 'ease' }),
+    anim(pj.left,  [{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: rects.L }], { duration: D, delay: ts, easing: EASE_BOOK }),
+    anim(pj.right, [{ clipPath: 'inset(0px 0px 0px 0px)' }, { clipPath: rects.R }], { duration: D, delay: ts, easing: EASE_BOOK }),
+    anim(pj.artL,  [{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: ts }),
+    anim(pj.artR,  [{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: ts }),
+    anim(pj.book,  [{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: ts + D - 260, easing: 'ease', ...F }),
+    // the cover swings shut and the book slides back to the middle (one shared easing, as when opening)
+    anim(pj.book,  [{ transform: `translateX(${S / 2}px)` }, { transform: 'none' }], { duration: CD, delay: tc, easing: EASE_BOOK, ...F }),
+    anim(pj.cover, [{ transform: 'rotateY(-180deg)' }, { transform: 'rotateY(0deg)' }], { duration: CD, delay: tc, easing: EASE_BOOK, ...F }),
+    anim(pj.bshade, [{ opacity: 0 }, { opacity: 1 }], { duration: CD * .45, delay: tc, easing: 'ease-in', ...F }),
+    anim(pj.fshade, [{ opacity: 1 }, { opacity: 0 }], { duration: CD * .45, delay: tc + CD * .5, easing: 'ease-out', ...F }),
+    anim(pj.cast, [{ opacity: 0 }, { opacity: .8, offset: .5 }, { opacity: 0 }], { duration: CD, delay: tc, ...F }),
+    // ...and the album flies back to its place on the shelf
+    anim(pj.page,  [{ opacity: 1 }, { opacity: 0 }], { duration: 1, delay: tf, ...F }),
+    anim(pj.book,  [{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${s})` }], { duration: FL, delay: tf, easing: EASE_IO, ...F }),
+    anim(pj.front, [{ borderRadius: '3px 6px 6px 3px' }, { borderRadius: round ? '50%' : `${6 / s}px` }], { duration: FL, delay: tf, easing: EASE_IO, ...F }),
+    anim(pj.scrim, [{ opacity: 1 }, { opacity: 0 }], { duration: FL, delay: tf, easing: 'ease', ...F })
   ]);
+  setWaterBusy(false);
   finishClose(target);
 }
 
