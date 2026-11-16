@@ -123,8 +123,15 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .sheen, .hr-sheen { background: conic-gradient(from 10deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,.17) 24deg, rgba(255,255,255,0) 58deg, rgba(255,255,255,0) 180deg, rgba(255,255,255,.13) 204deg, rgba(255,255,255,0) 238deg); }
 
 /* ---------- shelf of albums = projects ---------- */
-.shelf { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(28px, 4vw, 52px) clamp(16px, 2.4vw, 32px); }
+.shelf { --gap: clamp(16px, 2.4vw, 32px); position: relative; z-index: 1; list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(46px, 6vw, 76px) var(--gap); }
 .tile { position: relative; display: block; width: 100%; text-align: left; }
+/* every album stands on a wooden plank; the planks of one row join up */
+.tile .book3d::after { content: ""; position: absolute; z-index: -1; left: calc(var(--gap) / -2); right: calc(var(--gap) / -2); bottom: -15px; height: 15px; border-radius: 2px;
+  background: linear-gradient(180deg, #8c6a4c, #6a4b33 55%, #4a3322); box-shadow: 0 16px 26px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.22); }
+.tile.lifted .book3d::after { visibility: visible; }
+.tile.slot { cursor: default; }
+.tile.slot .book3d::before { content: ""; position: absolute; inset: 0; border-radius: 6px; border: 2px dashed rgba(255,246,239,.3); background: rgba(255,255,255,.04); }
+.tile.slot .tile-title { color: var(--ink-soft); }
 /* each tile is a little book: hover and the cover swings ajar on its spine, showing the first page */
 .tile .book3d { position: relative; display: block; aspect-ratio: 1; perspective: 900px; perspective-origin: 0 50%; }
 .tile .page { position: absolute; inset: 0; border-radius: 2px 6px 6px 2px; background: color-mix(in srgb, var(--tile-accent, var(--accent)) 26%, #f3ebe0); box-shadow: 0 18px 40px rgba(0,0,0,.28); overflow: hidden; }
@@ -137,7 +144,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .tile .sleeve img { width: 100%; height: 100%; object-fit: cover; }
 .tile:hover .sleeve, .tile:focus-visible .sleeve { transform: rotateY(-38deg); box-shadow: 16px 22px 44px rgba(0,0,0,.36); }
 .tile.lifted .book3d { visibility: hidden; }
-.tile-cap { display: block; margin-top: 16px; }
+.tile-cap { display: block; margin-top: 32px; }
 .tile-num { font-family: var(--serif); font-size: 18px; color: var(--ink-soft); }
 .tile-title { display: block; margin-top: 2px; font-family: var(--serif); font-size: clamp(26px, 2.4vw, 34px); line-height: 1.02; letter-spacing: -.01em; overflow-wrap: anywhere; }
 .tile-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 8px; font-size: 13.5px; color: var(--ink-soft); }
@@ -279,6 +286,56 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 .totop { font-weight: 600; font-size: 13.5px; padding: 8px 16px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-border); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform .25s; }
 .totop:hover { transform: translateY(-2px); }
 
+/* ---------- the project room ---------- */
+.room-wrap { padding: clamp(48px, 8vh, 100px) clamp(10px, 2.4vw, 32px); max-width: 1400px; margin: 0 auto; }
+.room {
+  /* inside the room it is always "evening": light text on a dim wall tinted by the current album */
+  --ink: #fff6ef; --ink-soft: rgba(255,246,239,.82);
+  --glass: rgba(255,255,255,.09); --glass-strong: rgba(255,255,255,.17); --glass-border: rgba(255,255,255,.22);
+  --neon: color-mix(in srgb, var(--c1) 62%, #ff9d5c);
+  --mx: 0; --my: 0; --lx: 50%; --ly: 28%; --padx: clamp(18px, 4vw, 64px);
+  position: relative; isolation: isolate; overflow: hidden; color: var(--ink);
+  border-radius: clamp(22px, 3vw, 44px); padding: clamp(40px, 7vh, 84px) var(--padx) 0;
+  background: color-mix(in oklab, var(--c0) 16%, #140c0f);
+  box-shadow: 0 44px 100px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.14);
+  transition: background-color .9s;
+}
+.room-wall { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,0) 38%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.028) 0 2px, rgba(255,255,255,0) 2px 54px); }
+.room-glow { position: absolute; inset: 0; opacity: .55; mix-blend-mode: screen; transition: opacity .6s;
+  background: radial-gradient(560px circle at var(--lx) var(--ly), color-mix(in srgb, var(--neon) 46%, rgba(255,214,160,.55)), transparent 64%); }
+.room-lamp { position: absolute; top: 0; left: var(--x); width: 0; height: 0; transition: transform .6s var(--ease);
+  transform: translateX(calc(var(--mx) * -16px)); }
+.room-lamp::before { content: ""; position: absolute; left: -1px; top: 0; width: 2px; height: var(--len); background: rgba(0,0,0,.6); }
+.room-lamp::after { content: ""; position: absolute; left: -36px; top: var(--len); width: 72px; height: 30px; border-radius: 72px 72px 8px 8px;
+  background: linear-gradient(180deg, #4a3830, #1b1210); box-shadow: 0 16px 100px 44px rgba(255,196,128,.3), inset 0 -6px 10px rgba(255,214,160,.5); }
+.room-lamp.l { --x: 7%; --len: 26px; }
+.room-lamp.r { --x: 93%; --len: 58px; }
+
+.room-head { position: relative; margin-bottom: clamp(44px, 7vh, 80px); }
+.room-head .eyebrow { color: var(--ink-soft); }
+.room-sign { font-family: var(--serif); font-weight: 400; font-size: clamp(46px, 7.4vw, 104px); line-height: 1; letter-spacing: -.015em; margin: 12px 0 0; color: #fff;
+  text-shadow: 0 0 3px #fff, 0 0 14px color-mix(in srgb, var(--neon) 85%, #fff), 0 0 36px var(--neon), 0 0 78px var(--neon);
+  animation: neon 7s linear infinite; }
+.room-sign em { font-style: italic; }
+@keyframes neon { 0%, 17%, 22%, 61%, 64%, 100% { opacity: 1; } 19%, 62.5% { opacity: .5; } 20.5% { opacity: .9; } }
+.room-head .sub { margin-top: 18px; max-width: 46ch; color: var(--ink-soft); font-size: 17px; }
+
+.room-floor { position: relative; height: clamp(110px, 17vh, 170px); margin: clamp(26px, 5vw, 56px) calc(var(--padx) * -1) 0; overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,0) 46%),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.3) 0 2px, rgba(0,0,0,0) 2px 130px),
+    linear-gradient(180deg, #4c3427, #281812); }
+.room-floor::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08)); }
+.room-rug { position: absolute; left: 50%; top: 24%; width: min(64%, 760px); height: 130%;
+  transform: translateX(calc(-50% + var(--mx) * 16px)) perspective(520px) rotateX(58deg); transform-origin: 50% 0; transition: transform .6s var(--ease);
+  border-radius: 10px; box-shadow: inset 0 0 0 7px rgba(255,236,200,.34), inset 0 0 0 11px rgba(0,0,0,.28), 0 10px 26px rgba(0,0,0,.45);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 10px, rgba(255,255,255,0) 10px 20px),
+    linear-gradient(90deg, color-mix(in srgb, var(--c1) 52%, #8a3b2e), color-mix(in srgb, var(--c0) 58%, #6b2a22)); }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
   .shelf { grid-template-columns: repeat(3, 1fr); }
@@ -305,12 +362,15 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
   .brand { font-size: 26px; }
   .hint { display: none; }
   .hr-play .hr-title { display: none; }
-  .shelf { gap: 28px 14px; }
+  .shelf { --gap: 14px; row-gap: 44px; }
+  .room-lamp.r { display: none; }
   .tile-title { font-size: 24px; }
   .tile-open { display: none; }
 }
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .hint-ring, .js .reveal.in { animation: none; }
-  * { transition-duration: .01ms !important; }
-}
+/* "calm" is set by main.js when the system asks for reduced motion (and the visitor hasn't opted in to the full animation) */
+html.calm { scroll-behavior: auto; }
+html.calm .hint-ring, html.calm .js .reveal.in, html.calm .room-sign { animation: none; }
+html.calm * { transition-duration: .01ms !important; }
+.motion-note { margin-top: 14px; font-size: 14px; color: var(--ink-soft); }
+.motion-note button { margin-left: 4px; padding: 2px 0; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; color: var(--ink); }
+.room .tile-open { color: #1a0e07; }

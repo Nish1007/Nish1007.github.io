@@ -21,7 +21,7 @@
 <header class="nav" id="nav">
   <a class="brand" href="#top" aria-label="Back to top">Nish<span>.</span></a>
   <nav class="links" aria-label="Sections">
-    <a href="#projects">Projects</a>
+    <a href="#projects">Project Room</a>
     <a href="#contact">Contact</a>
   </nav>
 </header>
@@ -43,7 +43,7 @@
       <h1 class="name reveal" style="--d:.15s">Nish<em>.</em></h1>
       <p class="lede reveal" style="--d:.3s">I build the layers most people take for granted&nbsp;— message brokers, operating systems, programming languages&nbsp;— usually from scratch, to see how they really work.</p>
       <div class="cta reveal" style="--d:.45s">
-        <a class="btn primary" href="#projects">See my projects</a>
+        <a class="btn primary" href="#projects">Enter the project room</a>
         <a class="btn" href="https://github.com/Nish1007" target="_blank" rel="noopener">GitHub&nbsp;↗</a>
       </div>
     </div>
@@ -57,13 +57,24 @@
   </section>
 
   <!-- ============ PROJECTS (albums) ============ -->
-  <section class="section" id="projects">
-    <header class="section-head reveal">
-      <p class="eyebrow">Selected work</p>
-      <h2>Every project is <em>an album</em></h2>
-      <p class="sub">Click an album to open its project. Each one comes with a soundtrack.</p>
-    </header>
-    <ul class="shelf" id="shelf"></ul>
+  <section class="room-wrap" id="projects" aria-labelledby="room-title">
+    <div class="room" id="room">
+      <div class="room-wall" aria-hidden="true">
+        <i class="room-glow"></i>
+        <i class="room-lamp l"></i><i class="room-lamp r"></i>
+      </div>
+
+      <header class="room-head reveal">
+        <p class="eyebrow">Selected work</p>
+        <h2 class="room-sign" id="room-title"><span>Project</span> <em>Room</em></h2>
+        <p class="sub">Every project is an album. Pull one off the shelf and it opens like a book. Each one comes with a soundtrack.</p>
+        <p class="motion-note" id="motion-note" hidden></p>
+      </header>
+
+      <ul class="shelf" id="shelf"></ul>
+
+      <div class="room-floor" aria-hidden="true"><i class="room-rug"></i></div>
+    </div>
   </section>
 
   <!-- ============ CONTACT ============ -->

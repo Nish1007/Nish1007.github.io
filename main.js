@@ -22,7 +22,12 @@ const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // respects the OS "reduce motion" setting; add ?motion to the URL to force full motion when testing
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches && !new URLSearchParams(location.search).has('motion');
+// A system "reduce motion" setting gets a calm version (a gentle fade instead of the book), never a blank jump.
+// The visitor can switch the full animation on (remembered), or add ?motion to the address.
+const sysReduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fullMotionChosen = () => { try { return localStorage.getItem('motion') === 'full'; } catch (e) { return false; } };
+let reduceMotion = sysReduce && !fullMotionChosen() && !new URLSearchParams(location.search).has('motion');
+document.documentElement.classList.toggle('calm', reduceMotion);
 const isNarrow = () => matchMedia('(max-width: 900px)').matches;
 const nowSec = () => performance.now() / 1000;
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -409,8 +414,59 @@ function renderShelf() {
     li.firstElementChild.addEventListener('click', e => openItem(it.i, e.currentTarget));
     el.shelf.appendChild(li);
   });
+  // an empty slot on the shelf for whatever I build next
+  const slot = document.createElement('li');
+  slot.innerHTML = `
+    <div class="tile slot" aria-hidden="true">
+      <span class="book3d"></span>
+      <span class="tile-cap"><span class="tile-num">Next record</span><span class="tile-title">In the works</span><span class="tile-meta"><span class="pill dashed">Soon</span></span></span>
+    </div>`;
+  el.shelf.appendChild(slot);
 }
 const tileOf = i => $(`.tile[data-i="${i}"]`);
+
+/* =====================================================================
+   Project room: the lamps, the glow and the rug drift a little with the pointer
+   ===================================================================== */
+function initRoom() {
+  const room = $('#room');
+  let raf = 0, px = 0, py = 0;
+  const apply = () => {
+    raf = 0;
+    const r = room.getBoundingClientRect();
+    room.style.setProperty('--mx', ((px - r.left) / r.width * 2 - 1).toFixed(3));
+    room.style.setProperty('--my', ((py - r.top) / r.height * 2 - 1).toFixed(3));
+    room.style.setProperty('--lx', (px - r.left).toFixed(0) + 'px');
+    room.style.setProperty('--ly', (py - r.top).toFixed(0) + 'px');
+  };
+  room.addEventListener('pointermove', e => {
+    if (reduceMotion || e.pointerType !== 'mouse' || openIdx >= 0) return;
+    px = e.clientX; py = e.clientY;
+    if (!raf) raf = requestAnimationFrame(apply);
+  }, { passive: true });
+  room.addEventListener('pointerleave', () => {
+    room.style.setProperty('--mx', 0); room.style.setProperty('--my', 0);
+  });
+
+  // "reduce motion" visitors get a gentle fade; let them opt in to the full book animation (and back)
+  const note = $('#motion-note');
+  if (sysReduce && note) {
+    const draw = () => {
+      note.hidden = false;
+      note.innerHTML = reduceMotion
+        ? 'Your device asks for reduced motion, so albums fade open. <button type="button">Play the full book animation</button>'
+        : 'Playing the full book animation. <button type="button">Back to calm</button>';
+      note.querySelector('button').addEventListener('click', () => {
+        const full = reduceMotion;               // currently calm -> switch to full
+        try { localStorage.setItem('motion', full ? 'full' : 'calm'); } catch (e) {}
+        reduceMotion = !full;
+        document.documentElement.classList.toggle('calm', reduceMotion);
+        draw();
+      });
+    };
+    draw();
+  }
+}
 
 /* =====================================================================
    Project sheet (right half)
@@ -484,8 +540,9 @@ const EASE_IO = 'cubic-bezier(.7,0,.2,1)', EASE_OUT = 'cubic-bezier(.2,.8,.2,1)'
 // run a Web Animation, then bake the end state into inline style so it sticks
 const SLOW = Math.max(1, +new URLSearchParams(location.search).get('slow') || 1);   // ?slow=6 plays the open/close animation 6x slower
 function anim(node, kf, opt = {}) {
-  opt = { duration: 600, delay: 0, ...opt };
-  opt = reduceMotion ? { ...opt, duration: 1, delay: 0 } : { ...opt, duration: opt.duration * SLOW, delay: opt.delay * SLOW };
+  const { calm, ...rest } = opt;                  // calm: true = a gentle fade that is still played under "reduce motion"
+  opt = { duration: 600, delay: 0, ...rest };
+  opt = (reduceMotion && !calm) ? { ...opt, duration: 1, delay: 0 } : { ...opt, duration: opt.duration * SLOW, delay: opt.delay * SLOW };
   const a = node.animate(kf, { easing: EASE_IO, fill: 'both', ...opt });
   return a.finished.then(() => { try { a.commitStyles(); } catch (e) {} a.cancel(); }, () => {});
 }
@@ -561,7 +618,7 @@ async function openItem(i, source) {
     pj.left.style.visibility = 'visible'; pj.right.style.visibility = 'visible';
     pj.scrim.style.opacity = 1; pj.close.style.opacity = 1;
     document.body.classList.add('pj-open');
-    await anim(pj.root, [{ opacity: 0, transform: isNarrow() && !reduceMotion ? 'translateY(48px)' : 'none' }, { opacity: 1, transform: 'none' }], { duration: 520, easing: EASE_OUT });
+    await anim(pj.root, [{ opacity: 0, transform: isNarrow() && !reduceMotion ? 'translateY(48px)' : 'none' }, { opacity: 1, transform: 'none' }], { duration: reduceMotion ? 460 : 520, easing: EASE_OUT, calm: true });
     pj.root.scrollTop = 0;
     busy = false; pj.close.focus({ preventScroll: true });
     if (closeQueued) closeOverlay();
@@ -650,7 +707,7 @@ async function closeOverlay() {
   const small = isNarrow() || reduceMotion;
 
   if (small) {
-    await anim(pj.root, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: isNarrow() && !reduceMotion ? 'translateY(48px)' : 'none' }], { duration: 380, easing: 'ease' });
+    await anim(pj.root, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: isNarrow() && !reduceMotion ? 'translateY(48px)' : 'none' }], { duration: 380, easing: 'ease', calm: true });
     document.body.classList.remove('pj-open');
     return finishClose(target);
   }
@@ -862,6 +919,7 @@ function boot() {
   initPolish();
   if (!ITEMS.length) return;
   renderShelf();
+  initRoom();
 
   const want = new URLSearchParams(location.search).get('album') || DEFAULT_ALBUM;
   const heroItem = ITEMS.find(it => it.album.slug === want) || ITEMS[0];
