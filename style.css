@@ -340,6 +340,10 @@ em { font-family: var(--serif); font-style: italic; font-weight: 400; }
 @media (max-width: 1100px) {
   .shelf { grid-template-columns: repeat(3, 1fr); }
 }
+/* with three columns the nine albums fill the shelf exactly, so the empty "next record" slot would sit alone on a row */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .shelf > li:last-child { display: none; }
+}
 @media (max-width: 900px) {
   .hero-record { --hr: 84vw; right: -34vw; top: auto; bottom: -6vw; }
   .hr-play { left: 16%; bottom: 36%; }

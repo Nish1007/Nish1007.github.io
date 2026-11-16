@@ -131,5 +131,41 @@ window.PROJECTS = {
     ],
     stack: ['Python', 'curl_cffi', 'YAML', 'SQLite', 'HTML reports'],
     github: 'https://github.com/Nish1007/vinted-deal-bot'
+  },
+
+  'speaking-in-tongues': {
+    title: 'Speech Recognition',
+    kind: 'Speech & audio',
+    tagline: 'An offline speech-to-text tool: transcribe audio files, make subtitles, or caption your microphone live, with no internet.',
+    description: 'Recognition runs on Vosk (Kaldi) models on your own machine, with no account, API key or cloud. The command-line tool around it is mine: audio conversion, word-timed subtitles and a live caption mode.',
+    facts: [['Repo', 'Public'], ['Built', 'Nov 2026'], ['Runs', 'Fully offline']],
+    langs: [['Python', 100]],
+    highlights: [
+      'Three commands: file (a transcript, plus optional SRT subtitles and a text file), live (captions from the microphone as you talk) and devices (list microphones).',
+      'Reads any 16-bit WAV, mono or stereo at any sample rate, and converts it to the 16 kHz mono the model expects.',
+      'Subtitles use the word-level timings from the recogniser and split long sentences into short, readable cues.',
+      'Live mode streams the microphone from the audio thread into a queue, showing partial words as they form and a timestamped line for each finished sentence.',
+      'Unit tests cover the audio conversion and subtitle formatting, and a silence check runs against the real model. A Dockerfile transcribes files in a container.'
+    ],
+    stack: ['Python 3', 'Vosk (Kaldi)', 'NumPy', 'sounddevice', 'pytest', 'Docker'],
+    github: 'https://github.com/Nish1007/speech-recognition'
+  },
+
+  'face-value': {
+    title: 'Face Recognition',
+    kind: 'Computer vision',
+    tagline: 'A live webcam check that tells you whether the face in front of the camera is the person in a reference photo.',
+    description: 'The face model is DeepFace; the video loop, threading and on-screen verdict are mine. It started as a short script in 2023, and I reworked it in 2026 so the video never freezes while it thinks.',
+    facts: [['Repo', 'Public'], ['Started', '2023'], ['Reworked', 'Nov 2026']],
+    langs: [['Python', 100]],
+    highlights: [
+      'A green MATCH, red NO MATCH or amber NO FACE overlay on the live camera feed, with the measured distance beside the threshold it is judged against.',
+      'Each check takes longer than a video frame, so it runs on a background thread behind a lock that allows only one check at a time; frames that arrive meanwhile are skipped. The original version started a new thread every 30 frames and could pile them up.',
+      'No face in view is reported as NO FACE rather than a misleading NO MATCH, and bad cameras or a missing reference photo give a clear message instead of a crash.',
+      'Command-line options for the camera, model and detector, plus an --image mode that checks a single photo without a webcam.',
+      'The reference photo is git-ignored, since it is a photo of a real person, and the tests use a stand-in for DeepFace so they run instantly.'
+    ],
+    stack: ['Python 3', 'DeepFace', 'OpenCV', 'TensorFlow', 'pytest'],
+    github: 'https://github.com/Nish1007/face-recognition'
   }
 };
