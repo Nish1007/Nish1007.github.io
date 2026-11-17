@@ -127,9 +127,11 @@ window.PROJECTS = {
       'Rates each retail-ratio deal LOW, MEDIUM or HIGH for fake or scam risk, from how cheap it is, seller review count, photo count, description quality and authenticity wording.',
       'Fetches pages with a browser-like TLS fingerprint (curl_cffi), decodes the listing data embedded in the page, and opens each candidate to check the seller. It waits a random few seconds between requests and backs off on 429 and 403 responses.',
       'Remembers what it has already shown you in a local SQLite database, so repeat runs mark listings as NEW or PRICE DROP, and a watch mode can send Discord or ntfy alerts.',
-      'Read-only by design: it only reads public listing pages and never logs in, buys or messages anyone.'
+      'Read-only by design: it only reads public listing pages and never logs in, buys or messages anyone.',
+      '113 offline tests (the Vinted client is faked) cover matching, every fake-risk rule, the back-off behaviour, whole hunts, NEW and PRICE DROP tracking and the real config file, and run on GitHub Actions.',
+      'Set up for Claude Code: a CLAUDE.md with the rules the bot must keep (read-only, polite, no secrets), three subagents for writing tests, reviewing changes and editing the config, and permissions that ask before anything contacts Vinted.'
     ],
-    stack: ['Python', 'curl_cffi', 'YAML', 'SQLite', 'HTML reports'],
+    stack: ['Python', 'curl_cffi', 'YAML', 'SQLite', 'pytest', 'GitHub Actions', 'Claude Code'],
     github: 'https://github.com/Nish1007/vinted-deal-bot'
   },
 
