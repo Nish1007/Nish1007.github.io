@@ -133,7 +133,7 @@ window.PROJECTS = {
     github: 'https://github.com/Nish1007/vinted-deal-bot'
   },
 
-  'speaking-in-tongues': {
+  'another-one': {
     title: 'Speech Recognition',
     kind: 'Speech & audio',
     tagline: 'An offline speech-to-text tool: transcribe audio files, make subtitles, or caption your microphone live, with no internet.',
@@ -151,7 +151,7 @@ window.PROJECTS = {
     github: 'https://github.com/Nish1007/speech-recognition'
   },
 
-  'face-value': {
+  'the-blue-album': {
     title: 'Face Recognition',
     kind: 'Computer vision',
     tagline: 'A live webcam check that tells you whether the face in front of the camera is the person in a reference photo.',
